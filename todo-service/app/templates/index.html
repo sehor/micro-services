@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Todo Service 测试页</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 24px; }
+    h1 { font-size: 20px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    label { display:block; margin: 6px 0 4px; font-weight: 600; }
+    input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+    button { cursor: pointer; background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; }
+    button.secondary { background: #6b7280; }
+    button.danger { background: #dc2626; }
+    .row { display:flex; gap:8px; flex-wrap: wrap; align-items: center; }
+    .todo { display:flex; justify-content: space-between; align-items:center; padding:8px; border:1px solid #eee; border-radius:6px; margin:6px 0; }
+    .muted { color:#6b7280; font-size:12px; }
+    .attr { font-size:12px; color:#2563eb; }
+    .checkbox { display:inline-flex; align-items:center; gap:6px; }
+  </style>
+</head>
+<body>
+  <h1>Todo Service 测试页</h1>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px">
+      <button onclick="loadTodos()">刷新列表</button>
+    </div>
+    <div id="todos"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">创建 Todo</h2>
+    <label>标题</label>
+    <input id="title" type="text" placeholder="标题" />
+    <label>描述</label>
+    <textarea id="description" rows="3" placeholder="描述（可选）"></textarea>
+    <div class="row" style="margin-top:8px">
+      <label class="checkbox"><input id="is_completed" type="checkbox" />已完成</label>
+      <button onclick="createTodo()">创建</button>
+    </div>
+    <details style="margin-top:8px">
+      <summary>可选：同时创建属性</summary>
+      <div class="row" style="margin-top:8px">
+        <label>mergency</label>
+        <input id="attr_mergency" type="text" placeholder="整数，默认0" />
+        <label>corlor</label>
+        <input id="attr_corlor" type="text" placeholder="颜色，可选" />
+        <label>category</label>
+        <input id="attr_category" type="text" placeholder="类别，可选" />
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">属性操作</h2>
+    <div class="row">
+      <input id="attr_todo_id" type="text" placeholder="todo_id" />
+      <input id="u_mergency" type="text" placeholder="mergency(可选)" />
+      <input id="u_corlor" type="text" placeholder="corlor(可选)" />
+      <input id="u_category" type="text" placeholder="category(可选)" />
+      <button class="secondary" onclick="createAttr()">创建属性</button>
+      <button class="secondary" onclick="updateAttr()">更新属性</button>
+      <button class="danger" onclick="deleteAttr()">删除属性</button>
+    </div>
+    <div class="muted">提示：先创建 Todo，再使用其 id 进行属性的增删改。</div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">查询事项剩余时间</h2>
+    <div class="row">
+      <input id="rt_todo_id" type="text" placeholder="todo_id" />
+      <button class="secondary" onclick="queryRemainingTime()">查询</button>
+    </div>
+    <div id="remaining_time_result" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <script>
+    const api = '/api';
+
+    async function loadTodos(){
+      const el = document.getElementById('todos');
+      el.innerHTML = '加载中...';
+      try {
+        const res = await fetch(`${api}/todos`);
+        if(!res.ok) throw new Error('获取列表失败');
+        const data = await res.json();
+        if(data.length === 0){ el.innerHTML = '<div class="muted">暂无数据</div>'; return; }
+        el.innerHTML = '';
+        for(const item of data){
+          const div = document.createElement('div');
+          div.className = 'todo';
+          const attr = item.attributes ? ` | attr: <span class="attr">(mergency=${item.attributes.mergency}, corlor=${item.attributes.corlor ?? '-'}, category=${item.attributes.category ?? '-'})</span>` : '';
+          div.innerHTML = `
+            <div>
+              <div><strong>#${item.id}</strong> - ${item.title} ${item.is_completed ? '✅' : ''}</div>
+              <div class=\"muted\">${item.description ?? ''}${attr}</div>
+            </div>
+            <div class=\"row\">
+              <button class=\"secondary\" onclick=\"toggleComplete(${item.id}, ${!item.is_completed})\">标记${item.is_completed ? '未完成' : '完成'}</button>
+              <button class=\"danger\" onclick=\"removeTodo(${item.id})\">删除</button>
+            </div>
+          `;
+          el.appendChild(div);
+        }
+      } catch (e){
+        el.innerHTML = `<span style=\"color:#dc2626\">${e.message}</span>`;
+      }
+    }
+
+    async function createTodo(){
+      const title = document.getElementById('title').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const is_completed = document.getElementById('is_completed').checked;
+      const a_m = document.getElementById('attr_mergency').value.trim();
+      const a_c = document.getElementById('attr_corlor').value.trim();
+      const a_g = document.getElementById('attr_category').value.trim();
+      if(!title){ alert('标题不能为空'); return; }
+      const payload = { title, description: description || null, is_completed };
+      if(a_m || a_c || a_g){
+        payload.attributes = {
+          mergency: a_m ? Number(a_m) : 0,
+          corlor: a_c || null,
+          category: a_g || null
+        };
+      }
+      const res = await fetch(`${api}/todos`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      if(!res.ok){ const t = await res.text(); alert('创建失败: '+t); return; }
+      document.getElementById('title').value='';
+      document.getElementById('description').value='';
+      document.getElementById('is_completed').checked=false;
+      document.getElementById('attr_mergency').value='';
+      document.getElementById('attr_corlor').value='';
+      document.getElementById('attr_category').value='';
+      loadTodos();
+    }
+
+    async function toggleComplete(id, val){
+      const res = await fetch(`${api}/todos/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ is_completed: !!val }) });
+      if(!res.ok){ const t = await res.text(); alert('更新失败: '+t); return; }
+      loadTodos();
+    }
+
+    async function removeTodo(id){
+      if(!confirm('确认删除该 Todo?')) return;
+      const res = await fetch(`${api}/todos/${id}`, { method:'DELETE' });
+      if(res.status !== 204){ const t = await res.text(); alert('删除失败: '+t); return; }
+      loadTodos();
+    }
+
+    async function createAttr(){
+      const todoId = document.getElementById('attr_todo_id').value.trim();
+      if(!todoId){ alert('请填写 todo_id'); return; }
+      const m = document.getElementById('u_mergency').value.trim();
+      const c = document.getElementById('u_corlor').value.trim();
+      const g = document.getElementById('u_category').value.trim();
+      const payload = { mergency: m ? Number(m) : 0, corlor: c || null, category: g || null };
+      const res = await fetch(`${api}/todos/${todoId}/attributes`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if(!res.ok){ const t = await res.text(); alert('创建属性失败: '+t); return; }
+      loadTodos();
+    }
+
+    async function updateAttr(){
+      const todoId = document.getElementById('attr_todo_id').value.trim();
+      if(!todoId){ alert('请填写 todo_id'); return; }
+      const m = document.getElementById('u_mergency').value.trim();
+      const c = document.getElementById('u_corlor').value.trim();
+      const g = document.getElementById('u_category').value.trim();
+      const payload = {};
+      if(m) payload.mergency = Number(m);
+      if(c) payload.corlor = c;
+      if(g) payload.category = g;
+      const res = await fetch(`${api}/todos/${todoId}/attributes`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if(!res.ok){ const t = await res.text(); alert('更新属性失败: '+t); return; }
+      loadTodos();
+    }
+
+    async function deleteAttr(){
+      const todoId = document.getElementById('attr_todo_id').value.trim();
+      if(!todoId){ alert('请填写 todo_id'); return; }
+      if(!confirm('确认删除该 Todo 的属性?')) return;
+      const res = await fetch(`${api}/todos/${todoId}/attributes`, { method:'DELETE' });
+      if(res.status !== 204){ const t = await res.text(); alert('删除属性失败: '+t); return; }
+      loadTodos();
+    }
+
+    async function queryRemainingTime(){
+      const todoId = document.getElementById('rt_todo_id').value.trim();
+      const out = document.getElementById('remaining_time_result');
+      out.textContent = '查询中...';
+      if(!todoId){ out.textContent = '请填写 todo_id'; return; }
+      try{
+        const res = await fetch(`${api}/todos/${todoId}/remaining-time`);
+        if(!res.ok){ const t = await res.text(); throw new Error(t || '查询失败'); }
+        const data = await res.json();
+        const due = new Date(data.due_at);
+        const remain = Math.floor(data.remaining_seconds);
+        out.innerHTML = `截止时间：${due.toLocaleString()}<br/>剩余秒数：${remain}（${data.is_overdue ? '已逾期' : '未逾期'}）`;
+      }catch(e){
+        out.innerHTML = `<span style='color:#dc2626'>${e.message}</span>`;
+      }
+    }
+
+    // 初始化加载
+    loadTodos();
+  </script>
+</body>
+</html>

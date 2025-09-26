@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Embedding 接口测试</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; margin: 24px; color: #1f2937; }
+
+    .card { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); overflow: hidden; }
+    .card-header { padding: 16px 20px; background: linear-gradient(135deg, #eff6ff, #f5f3ff); border-bottom: 1px solid #e5e7eb; }
+    .card-header h1 { margin: 0; font-size: 18px; color: #111827; }
+    .card-body { padding: 20px; }
+
+    .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 260px; }
+
+    label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; }
+    input[type="text"], input[type="url"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+    textarea { min-height: 110px; font-family: inherit; }
+
+    .actions { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-size: 14px; }
+    button.secondary { background: #334155; }
+    button.outline { background: transparent; color: #1f2937; border: 1px solid #cbd5e1; }
+
+    .muted { color: #6b7280; font-size: 12px; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; }
+
+    pre { background: #0b1021; color: #d1e7ff; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 380px; overflow: auto; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #334155; }
+    .badge { display: inline-block; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h1>Embedding 接口（LMStudio · text-embedding-qwen3-embedding-0.6b）测试</h1>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div>
+          <label>API 基础地址</label>
+          <input id="api_base" type="url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000" />
+        </div>
+        <div>
+          <label>路径</label>
+          <input id="api_path" type="text" value="/api/v1/embeddings/create" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Provider</label>
+          <input id="provider" type="text" value="LMStudio" />
+          <div class="muted">默认使用 OpenAI 兼容适配到本地 LM Studio</div>
+        </div>
+        <div>
+          <label>Model</label>
+          <input id="model" type="text" value="text-embedding-qwen3-embedding-0.6b" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%">
+          <div class="switch">
+            <input id="multi" type="checkbox" onchange="toggleMulti()" />
+            <label for="multi" style="margin: 0;">批量输入（按行拆分为多个文本）</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%">
+          <label>输入文本</label>
+          <textarea id="input_text" placeholder="输入待向量化的文本。若开启批量模式，将按换行拆分为多个条目。">今天天气很好，适合散步。</textarea>
+          <div class="actions" style="margin-top:8px;">
+            <button class="outline" onclick="fillSamples()">填入示例</button>
+            <span class="muted">提示：批量模式会忽略空行并裁剪首尾空白。</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button onclick="send()">调用 Embeddings 接口</button>
+        <button class="secondary" onclick="clearOut()">清空输出</button>
+        <button class="outline" onclick="copyOut()">复制返回 JSON</button>
+      </div>
+
+      <div class="row" style="margin-top: 14px;">
+        <div class="stat" style="flex:1 1 100%">
+          <div id="stats">就绪</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px" class="grid-2">
+        <div>
+          <label>请求体</label>
+          <pre id="req">{}</pre>
+        </div>
+        <div>
+          <label>返回结果</label>
+          <pre id="out">等待调用...</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 构造请求体
+     * - 单条：直接传字符串
+     * - 批量：按行拆分为字符串数组
+     */
+    function buildPayload() {
+      const provider = document.getElementById('provider').value.trim() || 'LMStudio';
+      const model = document.getElementById('model').value.trim() || 'text-embedding-qwen3-embedding-0.6b';
+      const isMulti = document.getElementById('multi').checked;
+      const text = document.getElementById('input_text').value;
+
+      let input;
+      if (isMulti) {
+        input = text.split('\n').map(s => s.trim()).filter(Boolean);
+      } else {
+        input = text;
+      }
+      const payload = { provider, model, input };
+      setReq(JSON.stringify(payload, null, 2));
+      return payload;
+    }
+
+    /**
+     * 发送请求到后端 Embeddings 接口
+     * - 显示原始 JSON
+     * - 提取每条向量维度并统计
+     */
+    async function send() {
+      const base = (document.getElementById('api_base').value || '').replace(/\/$/, '');
+      const path = document.getElementById('api_path').value || '/api/v1/embeddings/create';
+      const url = base + path;
+      const payload = buildPayload();
+
+      setStats('调用中...');
+      setOut('调用中...');
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const text = await resp.text();
+        setOut(text);
+        try {
+          const json = JSON.parse(text);
+          updateStatsFromResponse(json);
+        } catch (e) {
+          setStats('返回非 JSON，或解析失败。');
+        }
+      } catch (err) {
+        setOut('调用失败: ' + (err && err.message ? err.message : String(err)));
+        setStats('请求失败');
+      }
+    }
+
+    /**
+     * 从响应中提取统计信息
+     * - 列出 data 中每条 embedding 的维度
+     */
+    function updateStatsFromResponse(resp) {
+      if (!resp || !Array.isArray(resp.data)) {
+        setStats('未发现 data 数组，原样返回。');
+        return;
+      }
+      const dims = resp.data.map((item, idx) => {
+        const dim = Array.isArray(item.embedding) ? item.embedding.length : 0;
+        return `第 ${idx + 1} 条，维度：${dim}`;
+      });
+      const usageTokens = resp?.usage ? JSON.stringify(resp.usage) : '无';
+      setStats(`共 ${resp.data.length} 条向量。` + (dims.length ? (' [' + dims.join(' | ') + ']') : '') + `  使用信息：${usageTokens}`);
+    }
+
+    /** 显示请求体 */
+    function setReq(t) { document.getElementById('req').textContent = t; }
+    /** 显示响应体 */
+    function setOut(t) { document.getElementById('out').textContent = t; }
+    /** 显示统计信息 */
+    function setStats(t) { document.getElementById('stats').textContent = t; }
+
+    /**
+     * 清空输出区域
+     */
+    function clearOut() {
+      setOut('');
+      setStats('已清空');
+    }
+
+    /**
+     * 复制返回 JSON
+     */
+    async function copyOut() {
+      const t = document.getElementById('out').textContent || '';
+      try {
+        await navigator.clipboard.writeText(t);
+        setStats('已复制返回 JSON');
+      } catch (_) {
+        setStats('复制失败');
+      }
+    }
+
+    /**
+     * 开关批量模式时的 UI 提示
+     */
+    function toggleMulti() {
+      const isMulti = document.getElementById('multi').checked;
+      if (isMulti) {
+        setStats('批量模式已开启：每行作为一个文本条目。');
+      } else {
+        setStats('单条模式已开启：完整内容作为一个文本。');
+      }
+      buildPayload();
+    }
+
+    /**
+     * 填充示例文本
+     */
+    function fillSamples() {
+      const isMulti = document.getElementById('multi').checked;
+      if (isMulti) {
+        document.getElementById('input_text').value = [
+          '巴黎是法国的首都。',
+          '地球绕太阳公转一周约 365 天。',
+          '机器学习可用于自然语言处理。'
+        ].join('\n');
+      } else {
+        document.getElementById('input_text').value = '示例：向量可以用于文本检索与语义搜索。';
+      }
+      buildPayload();
+    }
+
+    // 初始化预览一次请求体
+    buildPayload();
+  </script>
+</body>
+</html>

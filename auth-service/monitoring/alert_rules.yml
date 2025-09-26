@@ -1,0 +1,204 @@
+# Prometheus告警规则
+groups:
+  # 应用健康告警
+  - name: auth-supabase-health
+    rules:
+      # 应用宕机告警
+      - alert: AuthServiceDown
+        expr: up{job="auth-supabase"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-supabase
+        annotations:
+          summary: "Auth服务宕机"
+          description: "Auth-Supabase服务已宕机超过1分钟"
+
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="auth-supabase",status_code=~"5.."}[5m]) /
+            rate(http_requests_total{job="auth-supabase"}[5m])
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "高错误率检测"
+          description: "Auth服务5xx错误率超过5%，当前值: {{ $value }}%"
+
+      # 高响应时间告警
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{job="auth-supabase"}[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "高响应时间检测"
+          description: "Auth服务95%响应时间超过2秒，当前值: {{ $value }}秒"
+
+  # 系统资源告警
+  - name: system-resources
+    rules:
+      # 高CPU使用率告警
+      - alert: HighCPUUsage
+        expr: system_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "高CPU使用率"
+          description: "系统CPU使用率超过80%，当前值: {{ $value }}%"
+
+      # 高内存使用率告警
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            system_memory_usage_bytes / system_memory_total_bytes
+          ) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "高内存使用率"
+          description: "系统内存使用率超过85%，当前值: {{ $value }}%"
+
+      # 进程内存泄漏告警
+      - alert: ProcessMemoryLeak
+        expr: |
+          increase(process_memory_usage_bytes[1h]) > 100 * 1024 * 1024
+        for: 30m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "进程内存增长异常"
+          description: "Auth服务进程内存在1小时内增长超过100MB"
+
+  # 认证相关告警
+  - name: authentication
+    rules:
+      # 认证失败率过高
+      - alert: HighAuthFailureRate
+        expr: |
+          (
+            rate(auth_operations_total{status="failed"}[5m]) /
+            rate(auth_operations_total[5m])
+          ) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "认证失败率过高"
+          description: "认证失败率超过10%，当前值: {{ $value }}%"
+
+      # Token验证时间过长
+      - alert: SlowTokenValidation
+        expr: |
+          histogram_quantile(0.95, 
+            rate(auth_token_validation_duration_seconds_bucket[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "Token验证时间过长"
+          description: "95%的Token验证时间超过0.5秒，当前值: {{ $value }}秒"
+
+  # 数据库相关告警
+  - name: database
+    rules:
+      # Supabase操作失败率过高
+      - alert: HighDatabaseErrorRate
+        expr: |
+          (
+            rate(supabase_operations_total{status="error"}[5m]) /
+            rate(supabase_operations_total[5m])
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "数据库操作失败率过高"
+          description: "Supabase操作失败率超过5%，当前值: {{ $value }}%"
+
+      # 数据库操作时间过长
+      - alert: SlowDatabaseOperations
+        expr: |
+          histogram_quantile(0.95, 
+            rate(supabase_operation_duration_seconds_bucket[5m])
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "数据库操作时间过长"
+          description: "95%的数据库操作时间超过1秒，当前值: {{ $value }}秒"
+
+  # Redis缓存告警
+  - name: redis-cache
+    rules:
+      # Redis连接失败
+      - alert: RedisConnectionFailure
+        expr: |
+          rate(redis_operations_total{status="error"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-supabase
+        annotations:
+          summary: "Redis连接失败"
+          description: "Redis操作出现错误，可能存在连接问题"
+
+      # 缓存命中率过低
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            rate(redis_cache_hits_total[5m]) /
+            (rate(redis_cache_hits_total[5m]) + rate(redis_cache_misses_total[5m]))
+          ) * 100 < 70
+        for: 10m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "缓存命中率过低"
+          description: "Redis缓存命中率低于70%，当前值: {{ $value }}%"
+
+  # 业务指标告警
+  - name: business-metrics
+    rules:
+      # 活跃连接数过高
+      - alert: TooManyActiveConnections
+        expr: active_connections_total > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-supabase
+        annotations:
+          summary: "活跃连接数过高"
+          description: "当前活跃连接数超过100，当前值: {{ $value }}"
+
+      # 错误数量激增
+      - alert: ErrorSpike
+        expr: |
+          increase(error_count_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-supabase
+        annotations:
+          summary: "错误数量激增"
+          description: "5分钟内错误数量超过50个，当前增量: {{ $value }}"

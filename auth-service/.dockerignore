@@ -1,0 +1,108 @@
+# Git相关
+.git
+.gitignore
+.github/
+
+# Python相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PIPFILE.lock
+
+# 虚拟环境
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.auth-supabase/
+
+# IDE相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试和覆盖率
+.tox/
+.coverage
+.pytest_cache/
+htmlcov/
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# 文档
+docs/
+*.md
+README*
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+.tmp/
+tmp/
+*.tmp
+*.temp
+
+# 操作系统相关
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 项目特定
+.trae/
+project-init.md
+Makefile
+.pre-commit-config.yaml
+docker-compose*.yml
+
+# 开发工具配置
+.ruff_cache/
+.mypy_cache/
+.bandit
+pyproject.toml
+
+# 环境变量文件
+.env.*
+!.env.example
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 缓存目录
+.cache/
+.pytest_cache/
+
+# 备份文件
+*.bak
+*.backup

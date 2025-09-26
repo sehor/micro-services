@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Rerank 重排接口测试</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; margin: 24px; color: #1f2937; }
+
+    .card { max-width: 1000px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); overflow: hidden; }
+    .card-header { padding: 16px 20px; background: linear-gradient(135deg, #ecfeff, #eff6ff); border-bottom: 1px solid #e5e7eb; }
+    .card-header h1 { margin: 0; font-size: 18px; color: #111827; }
+    .card-body { padding: 20px; }
+
+    .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 260px; }
+
+    label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; }
+    input[type="text"], input[type="url"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+    textarea { min-height: 140px; font-family: inherit; }
+
+    .actions { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-size: 14px; }
+    button.secondary { background: #334155; }
+    button.outline { background: transparent; color: #1f2937; border: 1px solid #cbd5e1; }
+
+    .muted { color: #6b7280; font-size: 12px; }
+    pre { background: #0b1021; color: #d1e7ff; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 420px; overflow: auto; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #334155; }
+    .badge { display: inline-block; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h1>Rerank 重排接口（LMStudio · qwen3-reranker-0.6b）测试</h1>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div>
+          <label>API 基础地址</label>
+          <input id="api_base" type="url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000" />
+        </div>
+        <div>
+          <label>路径</label>
+          <input id="api_path" type="text" value="/api/v1/rerank" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Provider</label>
+          <input id="provider" type="text" value="LMStudio" />
+          <div class="muted">默认使用 OpenAI 兼容，代理到本地 LM Studio</div>
+        </div>
+        <div>
+          <label>Model</label>
+          <input id="model" type="text" value="qwen3-reranker-0.6b" />
+        </div>
+        <div>
+          <label>top_n（可选）</label>
+          <input id="top_n" type="number" min="1" placeholder="不填则返回全量" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Query（查询语句）</label>
+          <input id="query" type="text" value="巴黎是哪个国家的首都？" required />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%">
+          <label>Documents（每行一个文档）</label>
+          <textarea id="documents" placeholder="每行一个文档，将按行拆分并自动裁剪空白。">巴黎是法国的首都，也是最大的城市。
+法国的首都是马赛。
+法国位于欧洲大陆，官方语言为法语。
+埃菲尔铁塔位于巴黎，是著名的地标。</textarea>
+          <div class="actions" style="margin-top:8px;">
+            <button class="outline" onclick="fillSamples()">填入示例</button>
+            <span class="muted">提示：空行会被忽略；文档会按输入顺序参与重排。</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button onclick="send()">调用 Rerank 接口</button>
+        <button class="secondary" onclick="clearOut()">清空输出</button>
+        <button class="outline" onclick="copyOut()">复制返回 JSON</button>
+      </div>
+
+      <div class="row" style="margin-top: 14px;">
+        <div class="stat" style="flex:1 1 100%">
+          <div id="stats">就绪</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px" class="grid-2">
+        <div>
+          <label>请求体</label>
+          <pre id="req">{}</pre>
+        </div>
+        <div>
+          <label>返回结果</label>
+          <pre id="out" style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;">等待调用...</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 构造请求体
+     * - documents：按行拆分为字符串数组
+     * - top_n：仅在填写时传递
+     */
+    function buildPayload() {
+      const provider = document.getElementById('provider').value.trim() || 'LMStudio';
+      const model = document.getElementById('model').value.trim() || 'qwen3-reranker-0.6b';
+      const query = document.getElementById('query').value;
+      const rawDocs = document.getElementById('documents').value || '';
+      const topNStr = document.getElementById('top_n').value;
+
+      const documents = rawDocs.split('\n').map(s => s.trim()).filter(Boolean);
+      const payload = { provider, model, query, documents };
+      if (topNStr !== '' && !Number.isNaN(Number(topNStr))) {
+        payload.top_n = Number(topNStr);
+      }
+      setReq(JSON.stringify(payload, null, 2));
+      return payload;
+    }
+
+    /**
+     * 发送请求到后端 Rerank 接口
+     * - 显示原始 JSON
+     * - 从响应中提取排序结果与分数
+     */
+    async function send() {
+      const base = (document.getElementById('api_base').value || '').replace(/\/$/, '');
+      const path = document.getElementById('api_path').value || '/api/v1/rerank';
+      const url = base + path;
+      const payload = buildPayload();
+
+      // 校验：必须提供查询语句
+      if (!payload.query || payload.query.trim() === '') {
+        setStats('请填写 Query（查询语句），重排模型需要查询才能计算相关性。');
+        setOut('未发送请求：缺少 Query');
+        document.getElementById('query').focus();
+        return;
+      }
+
+      setStats('调用中...');
+      setOut('调用中...');
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const text = await resp.text();
+        setOut(text);
+        try {
+          const json = JSON.parse(text);
+          updateStatsFromResponse(json);
+        } catch (e) {
+          setStats('返回非 JSON，或解析失败。');
+        }
+      } catch (err) {
+        setOut('调用失败: ' + (err && err.message ? err.message : String(err)));
+        setStats('请求失败');
+      }
+    }
+
+    /**
+     * 从响应中提取统计信息
+     * - 列出前若干条的 index/score 概览
+     */
+    function updateStatsFromResponse(resp) {
+      if (!resp || !Array.isArray(resp.results)) {
+        setStats('未发现 results 数组，原样返回。');
+        return;
+      }
+      const n = resp.results.length;
+      const preview = resp.results.slice(0, Math.min(5, n)).map((it, i) => {
+        const head = (it.document || '').slice(0, 28).replace(/\s+/g, ' ');
+        return `#${i+1} 原索引=${it.index} 分数=${Number(it.score).toFixed(4)} 文档片段="${head}${(it.document || '').length>28?'...':''}"`;
+      });
+      setStats(`共 ${n} 条重排结果。` + (preview.length ? (' 示例：' + preview.join(' | ')) : ''));
+    }
+
+    /** 显示请求体 */
+    function setReq(t) { document.getElementById('req').textContent = t; }
+    /** 显示响应体 */
+    function setOut(t) { document.getElementById('out').textContent = t; }
+    /** 显示统计信息 */
+    function setStats(t) { document.getElementById('stats').textContent = t; }
+
+    /**
+     * 清空输出区域
+     */
+    function clearOut() {
+      setOut('');
+      setStats('已清空');
+    }
+
+    /**
+     * 复制返回 JSON
+     */
+    async function copyOut() {
+      const t = document.getElementById('out').textContent || '';
+      try {
+        await navigator.clipboard.writeText(t);
+        setStats('已复制返回 JSON');
+      } catch (_) {
+        setStats('复制失败');
+      }
+    }
+
+    /**
+     * 填充示例文本
+     */
+    function fillSamples() {
+      document.getElementById('query').value = '巴黎是哪个国家的首都？';
+      document.getElementById('documents').value = [
+        '巴黎是法国的首都，也是最大的城市。',
+        '法国的首都是马赛。',
+        '法国位于欧洲大陆，官方语言为法语。',
+        '埃菲尔铁塔位于巴黎，是著名的地标。'
+      ].join('\n');
+      setStats('已填入示例数据');
+      buildPayload();
+    }
+
+    // 初始化预览一次请求体
+    buildPayload();
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+http:
+  routers:
+    auth:
+      rule: PathPrefix(`/auth`)
+      entryPoints:
+        - web
+      middlewares:
+        - auth-stripprefix
+        - auth-compress
+      service: auth
+    llm:
+      rule: PathPrefix(`/llm`)
+      entryPoints:
+        - web
+      middlewares:
+        - llm-stripprefix
+        - llm-compress
+      service: llm
+    rag:
+      rule: PathPrefix(`/rag`)
+      entryPoints:
+        - web
+      middlewares:
+        - rag-stripprefix
+        - rag-compress
+      service: rag
+    todo:
+      rule: PathPrefix(`/todo`)
+      entryPoints:
+        - web
+      middlewares:
+        - todo-stripprefix
+        - todo-compress
+      service: todo
+
+  services:
+    auth:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:8001
+    llm:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:8000
+    rag:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:8100
+    todo:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:8003
+
+  middlewares:
+    auth-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /auth
+    auth-compress:
+      compress: {}
+    llm-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /llm
+    llm-compress:
+      compress: {}
+    rag-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /rag
+    rag-compress:
+      compress: {}
+    todo-stripprefix:
+      stripPrefix:
+        prefixes:
+          - /todo
+    todo-compress:
+      compress: {}

@@ -1,0 +1,23 @@
+# Root Monorepo .gitignore
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments (root and service-specific)
+.venv/
+auth-service/.auth-supabase/
+rag-service/.rag-service/
+todo-service/.todo-service/
+
+# OS/IDE
+.vscode/
+*.log
+
+# Test/media artifacts
+llm-service/test_synthesis_*.mp3
+
+# Linters/cache
+**/.ruff_cache/

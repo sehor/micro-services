@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮箱验证成功</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .success-icon {
+            color: #10b981;
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        p {
+            color: #6b7280;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        <h1>邮箱验证成功！</h1>
+        <p>您的邮箱已成功验证，现在可以使用您的账户登录了。</p>
+        <a href="#" class="btn" onclick="closeWindow()">关闭页面</a>
+    </div>
+    
+    <script>
+        function closeWindow() {
+            // 尝试关闭窗口，如果失败则提供替代方案
+            try {
+                window.close();
+                // 如果窗口没有关闭，显示提示
+                setTimeout(() => {
+                    alert('请手动关闭此标签页');
+                }, 100);
+            } catch (e) {
+                alert('请手动关闭此标签页');
+            }
+        }
+        
+        // 处理OAuth回调中的令牌
+        const urlParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        
+        if (accessToken) {
+            console.log('OAuth登录成功，收到访问令牌');
+            // 存储令牌到localStorage
+            localStorage.setItem('supabase_access_token', accessToken);
+            if (refreshToken) {
+                localStorage.setItem('supabase_refresh_token', refreshToken);
+            }
+            
+            // 如果是在弹窗中，尝试向父窗口发送消息
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'oauth_success',
+                    access_token: accessToken,
+                    refresh_token: refreshToken
+                }, '*');
+            }
+            
+            // 更新页面内容显示成功信息
+            document.querySelector('h1').textContent = 'GitHub登录成功！';
+            document.querySelector('p').textContent = '您已成功通过GitHub登录，令牌已保存。';
+        } else {
+            console.log('未检测到OAuth令牌，可能是邮箱验证页面');
+        }
+    </script>
+</body>
+</html>

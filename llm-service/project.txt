@@ -1,0 +1,32 @@
+项目是一个基于 FastAPI 构建的高性能中间件服务，它为所有下游的大模型提供了一个统一、标准的 API 接口。应用开发者只需与本网关交互，即可轻松调用任何已配置的大模型，而无需关心底层的实现细节。网关负责处理动态路由、凭证管理、请求适配和响应格式化等所有繁杂工作。
+2. 核心功能 (Core Features)
+统一的调用接口 (Unified API Endpoint)：提供一个类似 OpenAI API 风格的标准化接口 (/v1/chat/completions)。开发者只需学习一套 API，即可使用所有模型。
+动态提供商路由 (Dynamic Provider Routing)：根据用户请求中的 provider 和 model_name 参数，自动将请求路由到正确的下游模型 API。
+集中式凭证管理 (Centralized Credential Management)：提供安全的 CRUD 接口，用于统一管理不同供应商的 API Keys、Base URLs 等敏感信息，避免凭证散落在各个应用代码中。
+可扩展的适配器架构 (Extensible Adapter Architecture)：通过简单的适配器模式，可以轻松地为新的 LLM 供应商添加支持，而无需修改核心业务逻辑。
+成本控制与日志记录 (Cost Control & Logging)：集中记录所有 API 请求和响应，为后续的用量分析、成本估算和审计提供数据支持。
+3. 目的
+告别繁琐的适配工作：开发者无需再为每个模型的 API 差异编写和维护大量的判断和适配代码。
+简化模型切换与测试：在不同模型之间进行 A/B 测试或切换时，只需修改请求中的一个参数，无需重新部署代码。
+提升安全性：将所有敏感的 API Keys 集中在网关服务中进行管理，而不是硬编码或分散在多个应用的环境变量中，降低了凭证泄露的风险。
+降低应用复杂性：将与 LLM 交互的复杂逻辑从业务应用中剥离，让应用开发者可以更专注于核心业务功能的实现。
+4. 技术选型 (Tech Stack)
+框架 (Framework): FastAPI
+理由：基于其天生的异步 (async/await) 特性，能够以极高的性能处理大量等待外部 LLM API 响应的 I/O 密集型并发请求。同时，其基于 Pydantic 的自动数据验证和交互式 API 文档极大提升了开发效率和项目质量。
+数据验证 (Data Validation): Pydantic
+理由：为所有 API 请求和响应以及数据库模型提供严格的数据结构定义和验证，保证了系统的健壮性。
+数据库 ORM (Database ORM): SQLAlchemy 
+理由：提供强大的异步数据库操作能力，与 FastAPI 完美结合，用于持久化存储供应商配置和 API Keys。
+HTTP 客户端 (HTTP Client): HTTPX
+理由：一个现代化的、支持异步请求的 HTTP 客户端，是执行对下游 LLM API 调用的理想选择。
+数据库 (Database): PostgreSQL
+理由：成熟、稳定且功能强大的开源关系型数据库，支持 JSONB 等高级数据类型，非常适合存储结构化的配置信息。
+5. 架构设计 (Architecture Design)
+本网关服务遵循简单清晰的请求处理流程：
+接收请求：客户端（业务应用）向网关的接口 POST /api/v1/chat/completions 发送请求。
+验证请求：FastAPI 和 Pydantic 自动验证请求体的结构是否符合预定义的 LLMRequest 模型。
+获取配置：服务根据请求中的 provider 参数，从数据库中安全地查询出对应的 Base URL 和 API Key。
+适配转换：调用与 provider 对应的适配器，将标准化的请求体转换为目标供应商 API 所需的特定格式。
+异步调用：使用 HTTPX 异步地将转换后的请求发送到目标 LLM API。
+格式化响应：接收到下游 API 的响应后，适配器再将其解析并转换为网关定义的标准响应格式。
+返回响应：将标准化的 JSON 响应返回给客户端。

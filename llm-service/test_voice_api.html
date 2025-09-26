@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音复刻与合成 API 测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"], input[type="url"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .audio-player {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+        .preset-urls {
+            margin-top: 10px;
+        }
+        .preset-url {
+            display: inline-block;
+            background-color: #e9ecef;
+            padding: 5px 10px;
+            margin: 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            border: 1px solid #ced4da;
+        }
+        .preset-url:hover {
+            background-color: #dee2e6;
+        }
+        .config-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 语音复刻与合成 API 测试工具</h1>
+    
+    <!-- 配置区域 -->
+    <div class="container">
+        <h2>⚙️ 配置</h2>
+        <div class="config-section">
+            <div class="form-group">
+                <label for="apiBase">API 基础地址:</label>
+                <input type="url" id="apiBase" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000">
+            </div>
+        </div>
+    </div>
+
+    <div class="two-column">
+        <!-- 声音复刻区域 -->
+        <div class="container">
+            <h2>🎯 声音复刻</h2>
+            <form id="cloneForm">
+                <div class="form-group">
+                    <label for="audioUrl">样本音频 URL:</label>
+                    <input type="url" id="audioUrl" placeholder="https://example.com/sample.mp3">
+                    <div class="preset-urls">
+                        <small>快速填入:</small>
+                        <span class="preset-url" onclick="fillAudioUrl('config')">使用配置文件中的URL</span>
+                        <span class="preset-url" onclick="fillAudioUrl('demo')">使用演示URL</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="prefix">声音前缀 (≤10字符):</label>
+                    <input type="text" id="prefix" placeholder="tv123456" maxlength="10" required>
+                    <small style="color: #666;">前缀用于标识你的声音，建议使用字母+数字组合</small>
+                </div>
+                
+                <button type="submit">🚀 开始复刻</button>
+                <button type="button" onclick="generateRandomPrefix()">🎲 生成随机前缀</button>
+            </form>
+            
+            <div class="loading" id="cloneLoading">
+                <div class="spinner"></div>
+                <p>正在复刻声音，请稍候...</p>
+            </div>
+            
+            <div id="cloneResult"></div>
+        </div>
+
+        <!-- 语音合成区域 -->
+        <div class="container">
+            <h2>🔊 语音合成</h2>
+            <form id="synthesizeForm" novalidate>
+                <div class="form-group">
+                    <label>声音来源:</label>
+                    <label style="margin-right: 15px;">
+                        <input type="radio" name="voiceSource" value="cloned" checked onclick="toggleVoiceSource()"> 复刻声音ID
+                    </label>
+                    <label>
+                        <input type="radio" name="voiceSource" value="builtin" onclick="toggleVoiceSource()"> 内置音色（阿里官方）
+                    </label>
+                    <small style="color:#666; display:block; margin-top:6px;">若选择“内置音色”，可直接填写阿里官方音色名（无需先复刻）。</small>
+                </div>
+
+                <div class="form-group" id="clonedVoiceGroup">
+                    <label for="voiceId">声音 ID:</label>
+                    <input type="text" id="voiceId" placeholder="从复刻结果中获取" required>
+                    <small style="color: #666;">使用上方复刻成功后返回的 voice_id</small>
+                </div>
+
+                <div class="form-group" id="builtinVoiceGroup" style="display:none;">
+                    <label for="builtinVoice">内置音色名:</label>
+                    <input type="text" id="builtinVoice" placeholder="例如：longhuhu、longdaiyu、longyingxun、longanping、longfeifei_v2">
+                    <small style="color:#666;">填写阿里云 DashScope cosyvoice-v2 支持的音色名称。是否支持 SSML 取决于具体音色。</small>
+                    <div class="preset-urls" style="margin-top:8px;">
+                        <small>预设内置音色:</small>
+                        <span class="preset-url" onclick="setBuiltinVoice('longhuhu')">longhuhu</span>
+                        <span class="preset-url" onclick="setBuiltinVoice('longdaiyu')">longdaiyu</span>
+                        <span class="preset-url" onclick="setBuiltinVoice('longyingxun')">longyingxun</span>
+                        <span class="preset-url" onclick="setBuiltinVoice('longanping')">longanping</span>
+                        <span class="preset-url" onclick="setBuiltinVoice('longfeifei_v2')">longfeifei_v2</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="text">要合成的文本:</label>
+                    <textarea id="text" placeholder="请输入要合成的文本内容..." required>你好，这是一个语音合成测试。今天天气不错，适合出去走走。</textarea>
+                    <div style="margin-top:8px;">
+                        <button type="button" onclick="fillSampleText()">📝 填入示例文本</button>
+                        <button type="button" onclick="fillSsmlSample()">🔖 填入 SSML 示例</button>
+                        <small style="color:#666; display:block; margin-top:6px;">提示：SSML 仅在部分内置音色上可用；若选择 SSML，请保持整段文本为一段完整的 SSML。</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="format">音频格式:</label>
+                    <select id="format">
+                        <option value="wav">WAV</option>
+                    </select>
+                    <small style="color: #666;">当前仅支持 WAV 格式</small>
+                </div>
+                
+                <button type="submit">🎵 生成语音</button>
+            </form>
+            
+            <div class="loading" id="synthesizeLoading">
+                <div class="spinner"></div>
+                <p>正在生成语音，请稍候...</p>
+            </div>
+            
+            <div id="synthesizeResult"></div>
+        </div>
+    </div>
+
+    <!-- 操作历史 -->
+    <div class="container">
+        <h2>📋 操作历史</h2>
+        <button onclick="clearHistory()">🗑️ 清空历史</button>
+        <div id="history"></div>
+    </div>
+
+    <script>
+        // 全局变量
+        let operationHistory = [];
+        
+        /**
+         * 获取API基础地址
+         */
+        function getApiBase() {
+            return document.getElementById('apiBase').value.trim() || 'http://127.0.0.1:8000';
+        }
+        
+        /**
+         * 显示结果信息
+         */
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+        
+        /**
+         * 显示加载状态
+         */
+        function showLoading(loadingId, show = true) {
+            document.getElementById(loadingId).style.display = show ? 'block' : 'none';
+        }
+        
+        /**
+         * 添加操作历史
+         */
+        function addToHistory(operation, result, type = 'info') {
+            const timestamp = new Date().toLocaleString();
+            operationHistory.unshift({
+                timestamp,
+                operation,
+                result,
+                type
+            });
+            
+            // 限制历史记录数量
+            if (operationHistory.length > 20) {
+                operationHistory = operationHistory.slice(0, 20);
+            }
+            
+            updateHistoryDisplay();
+        }
+        
+        /**
+         * 更新历史显示
+         */
+        function updateHistoryDisplay() {
+            const historyDiv = document.getElementById('history');
+            if (operationHistory.length === 0) {
+                historyDiv.innerHTML = '<p style="color: #666; font-style: italic;">暂无操作历史</p>';
+                return;
+            }
+            
+            historyDiv.innerHTML = operationHistory.map(item => `
+                <div class="result ${item.type}" style="margin-bottom: 10px;">
+                    <strong>[${item.timestamp}] ${item.operation}</strong><br>
+                    ${item.result}
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * 清空历史
+         */
+        function clearHistory() {
+            operationHistory = [];
+            updateHistoryDisplay();
+        }
+        
+        /**
+         * 生成随机前缀
+         */
+        function generateRandomPrefix() {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let prefix = 'tv';
+            for (let i = 0; i < 6; i++) {
+                prefix += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('prefix').value = prefix;
+        }
+        
+        /**
+         * 填入音频URL
+         */
+        function fillAudioUrl(type) {
+            const audioUrlInput = document.getElementById('audioUrl');
+            if (type === 'config') {
+                // 使用配置文件中的URL（需要更新为有效的预签名URL）
+                audioUrlInput.value = 'https://voice-to-clone.oss-cn-shenzhen.aliyuncs.com/voice-clone/to_clone_dtf1.mp3?Expires=1758590012&OSSAccessKeyId=TMP.3KoZbesQHqiwBGWH1rbPeTfXtxUKv6LzSZbbchFWWeENUkpWgFW2rSdztZWhpJNHBWLHFG5JV5ACMy1ryFi1tV3te1qvav&Signature=TTF3IwUrLOtdvji02i23gj0P4s4%3D';
+            } else if (type === 'demo') {
+                audioUrlInput.value = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+            }
+        }
+        
+        /**
+         * 填入示例文本
+         */
+        function fillSampleText() {
+            const texts = [
+                '你好，这是一个语音合成测试。今天天气不错，适合出去走走。',
+                '欢迎使用语音复刻技术，这项技术可以模拟任何人的声音特征。',
+                '人工智能正在改变我们的生活方式，语音合成就是其中一个重要应用。',
+                '春天来了，万物复苏，鸟语花香，正是踏青的好时节。',
+                '科技发展日新月异，我们要跟上时代的步伐，不断学习新知识。'
+            ];
+            const randomText = texts[Math.floor(Math.random() * texts.length)];
+            document.getElementById('text').value = randomText;
+        }
+        
+        /**
+         * 声音复刻处理
+         */
+        async function handleClone(event) {
+            event.preventDefault();
+            
+            const audioUrl = document.getElementById('audioUrl').value.trim();
+            const prefix = document.getElementById('prefix').value.trim();
+            
+            if (!prefix) {
+                showResult('cloneResult', '请填写前缀', 'error');
+                return;
+            }
+            
+            if (prefix.length > 10) {
+                showResult('cloneResult', '前缀长度不能超过10个字符', 'error');
+                return;
+            }
+            
+            showLoading('cloneLoading', true);
+            showResult('cloneResult', '', 'info');
+            
+            try {
+                const payload = { prefix: prefix };
+                if (audioUrl) {
+                    payload.audio_url = audioUrl;
+                }
+                const response = await fetch(`${getApiBase()}/api/v1/voice/clone`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const voiceId = data.voice_id;
+                    const message = `✅ 声音复刻成功！\n\nVoice ID: ${voiceId}\n前缀: ${prefix}\n音频URL: ${audioUrl}`;
+                    showResult('cloneResult', message, 'success');
+                    
+                    document.getElementById('voiceId').value = voiceId;
+                    
+                    addToHistory('声音复刻', `成功 - Voice ID: ${voiceId}`, 'success');
+                } else {
+                    const errorMsg = `❌ 复刻失败: ${data.detail || '未知错误'}`;
+                    showResult('cloneResult', errorMsg, 'error');
+                    addToHistory('声音复刻', `失败 - ${data.detail || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                const errorMsg = `❌ 网络错误: ${error.message}`;
+                showResult('cloneResult', errorMsg, 'error');
+                addToHistory('声音复刻', `失败 - ${error.message}`, 'error');
+            } finally {
+                showLoading('cloneLoading', false);
+            }
+        }
+        
+        /**
+         * 语音合成处理
+         */
+        async function handleSynthesize(event) {
+            event.preventDefault();
+            
+            const voiceSource = document.querySelector('input[name="voiceSource"]:checked').value;
+            const builtinVoice = document.getElementById('builtinVoice')?.value.trim();
+            const clonedVoiceId = document.getElementById('voiceId').value.trim();
+            const text = document.getElementById('text').value.trim();
+            const format = document.getElementById('format').value;
+            
+            let voiceIdToUse = '';
+            if (voiceSource === 'builtin') {
+                voiceIdToUse = builtinVoice;
+                if (!voiceIdToUse) {
+                    // 兼容：若未填写内置音色名，但在“声音ID”栏填写了内容，则直接使用该值
+                    if (clonedVoiceId) {
+                        voiceIdToUse = clonedVoiceId;
+                    } else {
+                        showResult('synthesizeResult', '请选择或填写内置音色名（或在声音ID栏填写内置音色）', 'error');
+                        return;
+                    }
+                }
+            } else {
+                voiceIdToUse = clonedVoiceId;
+                if (!voiceIdToUse) {
+                    showResult('synthesizeResult', '请填写复刻的声音ID', 'error');
+                    return;
+                }
+            }
+            
+            if (!text) {
+                showResult('synthesizeResult', '请填写要合成的文本内容（或 SSML）', 'error');
+                return;
+            }
+            
+            showLoading('synthesizeLoading', true);
+            showResult('synthesizeResult', '', 'info');
+            
+            try {
+                const response = await fetch(`${getApiBase()}/api/v1/voice/synthesize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        voice_id: voiceIdToUse,
+                        text: text,
+                        format: format
+                    })
+                });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    const message = `✅ 语音合成成功！\n\n文本长度: ${text.length} 字符\nVoice: ${voiceIdToUse}\n来源: ${voiceSource === 'builtin' ? '内置音色' : '复刻声音'}\n格式: ${format.toUpperCase()}`;
+                    showResult('synthesizeResult', message, 'success');
+                    
+                    const audioPlayer = document.createElement('div');
+                    audioPlayer.className = 'audio-player';
+                    audioPlayer.innerHTML = `
+                        <h4>🎵 生成的音频:</h4>
+                        <audio controls style="width: 100%; margin-bottom: 10px;">
+                            <source src="${audioUrl}" type="audio/${format}">
+                            您的浏览器不支持音频播放。
+                        </audio>
+                        <div>
+                            <a href="${audioUrl}" download="synthesized_audio.${format}" 
+                               style="background-color: #28a745; color: white; padding: 8px 16px; 
+                                      text-decoration: none; border-radius: 4px; display: inline-block;">
+                                💾 下载音频
+                            </a>
+                        </div>
+                    `;
+                    
+                    const resultDiv = document.getElementById('synthesizeResult');
+                    resultDiv.appendChild(audioPlayer);
+                    
+                    addToHistory('语音合成', `成功 - 来源: ${voiceSource}, 文本长度: ${text.length}字符`, 'success');
+                } else {
+                    const data = await response.json();
+                    const errorMsg = `❌ 合成失败: ${data.detail || '未知错误'}`;
+                    showResult('synthesizeResult', errorMsg, 'error');
+                    addToHistory('语音合成', `失败 - ${data.detail || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                const errorMsg = `❌ 网络错误: ${error.message}`;
+                showResult('synthesizeResult', errorMsg, 'error');
+                addToHistory('语音合成', `网络错误 - ${error.message}`, 'error');
+            } finally {
+                showLoading('synthesizeLoading', false);
+            }
+        }
+
+        // 绑定事件监听器
+        document.getElementById('cloneForm').addEventListener('submit', handleClone);
+        document.getElementById('synthesizeForm').addEventListener('submit', handleSynthesize);
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 生成初始随机前缀
+            generateRandomPrefix();
+            
+            // 初始化历史显示
+            updateHistoryDisplay();
+            
+            // 检查API连接
+            checkApiConnection();
+        });
+        
+        /**
+         * 检查API连接状态
+         */
+        async function checkApiConnection() {
+            try {
+                const response = await fetch(`${getApiBase()}/docs`, { method: 'HEAD' });
+                if (response.ok) {
+                    console.log('✅ API 服务连接正常');
+                } else {
+                    console.warn('⚠️ API 服务可能未启动');
+                }
+            } catch (error) {
+                console.warn('⚠️ 无法连接到API服务:', error.message);
+            }
+        }
+
+        /**
+         * 填入 SSML 示例文本
+         */
+        function fillSsmlSample() {
+            const ssml = '<speak>请闭上眼睛休息一下<break time="500ms"/>好了，请睁开眼睛。</speak>';
+            document.getElementById('text').value = ssml;
+        }
+
+        /**
+         * 切换声音来源显示：在选择“内置音色”时隐藏复刻ID输入，显示内置音色输入；反之亦然
+         */
+        function toggleVoiceSource() {
+            const source = document.querySelector('input[name="voiceSource"]:checked').value;
+            const clonedGroup = document.getElementById('clonedVoiceGroup');
+            const builtinGroup = document.getElementById('builtinVoiceGroup');
+            const voiceIdInput = document.getElementById('voiceId');
+            const builtinInput = document.getElementById('builtinVoice');
+            if (source === 'builtin') {
+                clonedGroup.style.display = 'none';
+                builtinGroup.style.display = 'block';
+                if (voiceIdInput) voiceIdInput.required = false;
+                if (builtinInput) builtinInput.required = false; // 我们在 handleSynthesize 中做自定义校验
+            } else {
+                clonedGroup.style.display = 'block';
+                builtinGroup.style.display = 'none';
+                if (voiceIdInput) voiceIdInput.required = true;
+                if (builtinInput) builtinInput.required = false;
+            }
+        }
+
+        /**
+         * 设置预设内置音色并切换为“内置音色”来源
+         */
+        function setBuiltinVoice(name) {
+            const input = document.getElementById('builtinVoice');
+            if (input) input.value = name;
+            const radio = document.querySelector('input[name="voiceSource"][value="builtin"]');
+            if (radio) { radio.checked = true; toggleVoiceSource(); }
+        }
+
+        // 页面初始化时根据当前选择同步显示
+        document.addEventListener('DOMContentLoaded', function() { toggleVoiceSource(); });
+    </script>
+</body>
+</html>

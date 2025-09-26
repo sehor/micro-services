@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v2.11
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.filename=/etc/traefik/traefik-dynamic.yml
+      - --entrypoints.web.address=:80
+      - --accesslog=true
+      - --log=true
+      - --log.level=DEBUG
+      - --metrics.prometheus=true
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik-dynamic.yml:/etc/traefik/traefik-dynamic.yml:ro
+    networks:
+      - traefik_public
+
+  auth-service:
+    build: ./auth-service
+    networks:
+      - traefik_public
+
+  llm-service:
+    build: ./llm-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
+      - DB_AUTO_CREATE=true
+      - DEBUG=true
+    networks:
+      - traefik_public
+
+  rag-service:
+    build: ./rag-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
+      - DB_AUTO_CREATE=true
+      - DEBUG=true
+      - LLMS_GATEWAY_BASE=http://llm-service:8000
+    networks:
+      - traefik_public
+
+  todo-service:
+    build: ./todo-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
+      - DB_AUTO_CREATE=true
+      - DEBUG=true
+    networks:
+      - traefik_public
+
+networks:
+  traefik_public:
+    name: traefik_public

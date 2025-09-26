@@ -1,0 +1,261 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  POETRY_VERSION: '1.7.1'
+
+jobs:
+  lint-and-format:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 缓存pip依赖
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy bandit pip-audit
+          pip install -r requirements.txt
+
+      - name: 代码格式检查 (Ruff)
+        run: |
+          ruff check app/ tests/ --output-format=github
+          ruff format app/ tests/ --check
+
+      - name: 类型检查 (MyPy)
+        run: |
+          mypy app/ --config-file pyproject.toml
+
+      - name: 安全扫描 (Bandit)
+        run: |
+          bandit -r app/ -f json -o bandit-report.json
+          bandit -r app/ -f txt
+
+      - name: 依赖安全审计 (pip-audit)
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json
+          pip-audit
+
+      - name: 上传安全报告
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            pip-audit-report.json
+
+  test:
+    name: 运行测试
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 缓存pip依赖
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio pytest-cov pytest-mock httpx
+          pip install -r requirements.txt
+
+      - name: 运行测试
+        env:
+          ENVIRONMENT: testing
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'test-key' }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET || 'test-secret' }}
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            --junitxml=pytest-report.xml \
+            -v
+
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            htmlcov/
+            pytest-report.xml
+
+      - name: 上传覆盖率到Codecov
+        uses: codecov/codecov-action@v3
+        if: success()
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  build:
+    name: 构建应用
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test]
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装构建依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel
+
+      - name: 构建Python包
+        run: |
+          python -m build
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-package
+          path: dist/
+
+  docker-build:
+    name: 构建Docker镜像
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test]
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录Docker Hub
+        if: github.event_name == 'release'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKER_USERNAME }}/auth-supabase
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 构建并推送Docker镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'release' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: 部署到测试环境
+    runs-on: ubuntu-latest
+    needs: [build, docker-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    
+    steps:
+      - name: 部署到测试环境
+        run: |
+          echo "部署到测试环境的逻辑"
+          # 这里可以添加实际的部署脚本
+          # 例如：kubectl apply -f k8s/staging/
+          # 或者：docker-compose -f docker-compose.staging.yml up -d
+
+  deploy-production:
+    name: 部署到生产环境
+    runs-on: ubuntu-latest
+    needs: [build, docker-build]
+    if: github.event_name == 'release'
+    environment: production
+    
+    steps:
+      - name: 部署到生产环境
+        run: |
+          echo "部署到生产环境的逻辑"
+          # 这里可以添加实际的部署脚本
+          # 例如：kubectl apply -f k8s/production/
+          # 或者：docker-compose -f docker-compose.prod.yml up -d
+
+  notify:
+    name: 通知
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+      - name: 通知部署结果
+        run: |
+          echo "发送部署通知"
+          # 这里可以添加通知逻辑
+          # 例如：发送Slack消息、邮件等

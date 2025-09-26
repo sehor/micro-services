@@ -1,0 +1,39 @@
+# Grafana仪表板配置
+apiVersion: 1
+
+providers:
+  # Auth-Supabase仪表板提供者
+  - name: 'auth-supabase-dashboards'
+    orgId: 1
+    folder: 'Auth-Supabase'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+
+  # 系统监控仪表板提供者
+  - name: 'system-dashboards'
+    orgId: 1
+    folder: 'System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/system
+      foldersFromFilesStructure: false
+
+  # 应用监控仪表板提供者
+  - name: 'application-dashboards'
+    orgId: 1
+    folder: 'Applications'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/applications
+      foldersFromFilesStructure: false

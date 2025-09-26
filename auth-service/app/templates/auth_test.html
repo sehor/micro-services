@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证系统测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f9fafb;
+        }
+        
+        .section h3 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        input[type="email"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-oauth {
+            background: #374151;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-oauth:hover {
+            background: #1f2937;
+        }
+        
+        .btn-google {
+            background: #dc2626;
+        }
+        
+        .btn-google:hover {
+            background: #b91c1c;
+        }
+        
+        .btn-github {
+            background: #1f2937;
+        }
+        
+        .btn-github:hover {
+            background: #111827;
+        }
+        
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+        
+        .result.error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .token-display {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+            border: 1px solid #d1d5db;
+        }
+        
+        .token-display h4 {
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+        
+        .token-text {
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 3px;
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>认证系统测试页面</h1>
+            <p>测试注册、登录和第三方认证功能</p>
+        </div>
+        
+        <div class="content">
+            <!-- 用户注册 -->
+            <div class="section">
+                <h3>📝 用户注册</h3>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerEmail">邮箱:</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">密码:</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <button type="submit" class="btn">注册</button>
+                </form>
+                <div id="registerResult" class="result" style="display: none;"></div>
+            </div>
+            
+            <!-- 用户登录 -->
+            <div class="section">
+                <h3>🔐 用户登录</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">邮箱:</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">密码:</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn">登录</button>
+                </form>
+                <div id="loginResult" class="result" style="display: none;"></div>
+            </div>
+            
+            <!-- 第三方登录 -->
+            <div class="section">
+                <h3>🌐 第三方登录</h3>
+                <p style="margin-bottom: 1rem; color: #6b7280;">点击下方按钮进行第三方登录：</p>
+                <button onclick="oauthLogin('google')" class="btn btn-google">
+                    <span>🔍</span> Google 登录
+                </button>
+                <button onclick="oauthLogin('github')" class="btn btn-github">
+                    <span>🐙</span> GitHub 登录
+                </button>
+                <div id="oauthResult" class="result" style="display: none;"></div>
+            </div>
+            
+            <!-- Token 验证 -->
+            <div class="section">
+                <h3>✅ Token 验证</h3>
+                <p style="margin-bottom: 1rem; color: #6b7280;">验证当前存储的访问令牌：</p>
+                <button onclick="verifyToken()" class="btn">验证 Token</button>
+                <button onclick="clearTokens()" class="btn" style="background: #ef4444;">清除 Token</button>
+                <button onclick="refreshTokenMock()" class="btn">刷新 Access Token（本地模拟）</button>
+                <button onclick="refreshTokenApi()" class="btn">刷新 Access Token（调用 /auth/refresh）</button>
+                <div id="verifyResult" class="result" style="display: none;"></div>
+                <div class="token-display" id="refreshedAccessToken" style="display:none;"></div>
+                <div style="margin-top:1rem;">
+                    <h4 style="margin-bottom:0.5rem;color:#374151;">登出</h4>
+                    <button onclick="logoutApi('global')" class="btn">Sign Out (global)</button>
+                    <button onclick="logoutApi('local')" class="btn">Sign Out (local)</button>
+                    <button onclick="logoutApi('others')" class="btn">Sign Out (others)</button>
+                    <div id="logoutStatus" class="result" style="display:none;"></div>
+                </div>
+            </div>
+            
+            <!-- 当前 Token 显示 -->
+            <div class="section">
+                <h3>🎫 当前 Token</h3>
+                <div id="currentTokens">
+                    <p style="color: #6b7280;">暂无 Token</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API 基础 URL
+        const API_BASE = window.location.origin;
+        
+        // 显示结果的辅助函数
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.style.display = 'block';
+        }
+        
+        // 更新 Token 显示
+        function updateTokenDisplay() {
+            const accessToken = localStorage.getItem('access_token');
+            const refreshToken = localStorage.getItem('refresh_token');
+            const currentTokensDiv = document.getElementById('currentTokens');
+            
+            if (accessToken || refreshToken) {
+                currentTokensDiv.innerHTML = `
+                    ${accessToken ? `
+                        <div class="token-display">
+                            <h4>Access Token:</h4>
+                            <div class="token-text">${accessToken}</div>
+                        </div>
+                    ` : ''}
+                    ${refreshToken ? `
+                        <div class="token-display">
+                            <h4>Refresh Token:</h4>
+                            <div class="token-text">${refreshToken}</div>
+                        </div>
+                    ` : ''}
+                `;
+            } else {
+                currentTokensDiv.innerHTML = '<p style="color: #6b7280;">暂无 Token</p>';
+            }
+        }
+        
+        // 用户注册
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('registerResult', `注册成功！\n用户ID: ${data.user_id}\n邮箱: ${data.email}`);
+                } else {
+                    showResult('registerResult', `注册失败: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult('registerResult', `请求失败: ${error.message}`, true);
+            }
+        });
+        
+        // 用户登录
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // 存储 tokens
+                    localStorage.setItem('access_token', data.access_token);
+                    if (data.refresh_token) {
+                        localStorage.setItem('refresh_token', data.refresh_token);
+                    }
+                    
+                    showResult('loginResult', `登录成功！\n用户ID: ${data.user_id}\n邮箱: ${data.email}\nToken类型: ${data.token_type}`);
+                    updateTokenDisplay();
+                } else {
+                    showResult('loginResult', `登录失败: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult('loginResult', `请求失败: ${error.message}`, true);
+            }
+        });
+        
+        // 监听OAuth回调消息
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'oauth_success') {
+                // 存储从OAuth回调页面接收到的令牌
+                localStorage.setItem('access_token', event.data.access_token);
+                if (event.data.refresh_token) {
+                    localStorage.setItem('refresh_token', event.data.refresh_token);
+                }
+                
+                showResult('oauthResult', 'OAuth登录成功！令牌已保存。');
+                updateTokenDisplay();
+                
+                // 关闭OAuth弹窗
+                if (window.oauthWindow) {
+                    window.oauthWindow.close();
+                    window.oauthWindow = null;
+                }
+            }
+        });
+        
+        // 检查令牌是否有效
+        async function isTokenValid() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return false;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.valid) {
+                    return true;
+                } else {
+                    // 令牌无效，尝试刷新
+                    console.log('令牌无效，尝试刷新...');
+                    const refreshed = await refreshToken();
+                    return refreshed;
+                }
+            } catch (error) {
+                console.log('令牌验证失败:', error);
+                return false;
+            }
+        }
+        
+        // 第三方登录
+        async function oauthLogin(provider) {
+            // 首先检查是否已有有效令牌
+            showResult('oauthResult', '检查现有令牌...');
+            const tokenValid = await isTokenValid();
+            
+            if (tokenValid) {
+                showResult('oauthResult', `已有有效的${provider}令牌，无需重新授权！`);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/oauth/login/${provider}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('oauthResult', `令牌已过期或无效，获取 ${provider} 授权URL成功，正在打开登录窗口...`);
+                    
+                    // 在新窗口中打开OAuth登录页面
+                    const width = 500;
+                    const height = 600;
+                    const left = (screen.width - width) / 2;
+                    const top = (screen.height - height) / 2;
+                    
+                    window.oauthWindow = window.open(
+                        data.authorization_url,
+                        'oauth_login',
+                        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+                    );
+                    
+                    // 检查弹窗是否被阻止
+                    if (!window.oauthWindow) {
+                        showResult('oauthResult', '弹窗被阻止，请允许弹窗后重试', true);
+                        return;
+                    }
+                    
+                    // 监听弹窗关闭事件
+                    const checkClosed = setInterval(() => {
+                        if (window.oauthWindow.closed) {
+                            clearInterval(checkClosed);
+                            window.oauthWindow = null;
+                            // 检查是否有新的令牌
+                            const newToken = localStorage.getItem('supabase_access_token');
+                            if (newToken && newToken !== localStorage.getItem('access_token')) {
+                                localStorage.setItem('access_token', newToken);
+                                const refreshToken = localStorage.getItem('supabase_refresh_token');
+                                if (refreshToken) {
+                                    localStorage.setItem('refresh_token', refreshToken);
+                                }
+                                showResult('oauthResult', 'OAuth登录成功！令牌已保存。');
+                                updateTokenDisplay();
+                            }
+                        }
+                    }, 1000);
+                    
+                } else {
+                    showResult('oauthResult', `获取 ${provider} 授权URL失败: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult('oauthResult', `请求失败: ${error.message}`, true);
+            }
+        }
+        
+        // 验证 Token
+        async function verifyToken() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                showResult('verifyResult', '没有找到访问令牌', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('verifyResult', `Token验证成功！\n有效: ${data.valid}\n用户ID: ${data.user_id}\n邮箱: ${data.email}`);
+                } else {
+                    showResult('verifyResult', `Token验证失败: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult('verifyResult', `请求失败: ${error.message}`, true);
+            }
+        }
+        
+        // 尝试刷新令牌
+        async function refreshToken() {
+            const rToken = localStorage.getItem('refresh_token');
+            if (!rToken) {
+                console.log('没有refresh_token，无法刷新');
+                return false;
+            }
+            
+            try {
+                console.log('尝试刷新令牌...');
+                const response = await fetch(`${API_BASE}/auth/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: rToken })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    console.log('刷新失败:', data.detail || response.statusText);
+                    return false;
+                }
+                if (data.access_token) {
+                    localStorage.setItem('access_token', data.access_token);
+                }
+                if (data.refresh_token) {
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
+                updateTokenDisplay();
+                return true;
+            } catch (error) {
+                console.log('令牌刷新失败:', error);
+                return false;
+            }
+        }
+
+        // UI 触发：调用后端刷新接口
+        async function refreshTokenApi() {
+            const ok = await refreshToken();
+            const box = document.getElementById('refreshedAccessToken');
+            if (ok) {
+                const token = localStorage.getItem('access_token');
+                box.textContent = `已刷新 Access Token: ${token}`;
+                box.style.display = 'block';
+            } else {
+                box.textContent = '刷新失败：无法获取新的 Access Token';
+                box.style.display = 'block';
+            }
+        }
+
+        // UI 触发：本地模拟刷新
+        function refreshTokenMock() {
+            const newAccess = `mock_access_${Date.now()}`;
+            localStorage.setItem('access_token', newAccess);
+            const box = document.getElementById('refreshedAccessToken');
+            box.textContent = `已刷新 Access Token（模拟）: ${newAccess}`;
+            box.style.display = 'block';
+            updateTokenDisplay();
+        }
+
+        // 登出
+        async function logoutApi(scope) {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                showResult('logoutStatus', '未找到 access_token', true);
+                return;
+            }
+            const rToken = localStorage.getItem('refresh_token');
+            if (!rToken) {
+                showResult('logoutStatus', '未找到 refresh_token', true);
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ refresh_token: rToken, scope })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok) {
+                    if (scope === 'global' || scope === 'local') {
+                        clearTokens();
+                    }
+                    showResult('logoutStatus', data.message || `注销(${scope})成功`, false);
+                } else {
+                    showResult('logoutStatus', data.detail || `注销(${scope})失败`, true);
+                }
+            } catch (error) {
+                showResult('logoutStatus', `请求失败: ${error.message}`, true);
+            }
+        }
+        
+        // 清除 Tokens
+        function clearTokens() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('supabase_access_token');
+            localStorage.removeItem('supabase_refresh_token');
+            updateTokenDisplay();
+            showResult('verifyResult', 'Tokens已清除');
+        }
+        
+        // 页面加载时检查URL中的token（用于OAuth回调）
+        window.addEventListener('load', () => {
+            updateTokenDisplay();
+            
+            // 检查URL hash中是否有OAuth回调的token
+            if (window.location.hash) {
+                const params = new URLSearchParams(window.location.hash.substring(1));
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+                
+                if (accessToken) {
+                    localStorage.setItem('access_token', accessToken);
+                    if (refreshToken) {
+                        localStorage.setItem('refresh_token', refreshToken);
+                    }
+                    
+                    // 清除URL中的hash
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    updateTokenDisplay();
+                    showResult('oauthResult', '第三方登录成功！Token已保存。');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

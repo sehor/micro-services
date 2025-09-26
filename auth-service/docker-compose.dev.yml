@@ -1,0 +1,96 @@
+# Docker Compose开发环境配置
+version: '3.8'
+
+services:
+  # 开发环境应用服务
+  auth-app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: auth-supabase-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      - REDIS_HOST=redis-dev
+      - REDIS_PORT=6379
+      - SUPABASE_URL=${SUPABASE_URL:-https://test.supabase.co}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-test-key}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-test-secret}
+    volumes:
+      # 挂载源代码以支持热重载
+      - ./app:/app/app:ro
+      - ./tests:/app/tests:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - auth-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # 开发环境Redis
+  redis-dev:
+    image: redis:7-alpine
+    container_name: auth-supabase-redis-dev
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly no --save ""
+    networks:
+      - auth-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 测试运行器（可选）
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: auth-supabase-tests
+    environment:
+      - ENVIRONMENT=testing
+      - REDIS_HOST=redis-dev
+      - REDIS_PORT=6379
+      - SUPABASE_URL=https://test.supabase.co
+      - SUPABASE_SERVICE_ROLE_KEY=test-key
+      - SUPABASE_JWT_SECRET=test-secret
+    volumes:
+      - ./app:/app/app:ro
+      - ./tests:/app/tests:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./coverage.xml:/app/coverage.xml
+      - ./htmlcov:/app/htmlcov
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - auth-dev-network
+    command: >
+      sh -c "pytest tests/ 
+             --cov=app 
+             --cov-report=xml:coverage.xml 
+             --cov-report=html:htmlcov 
+             --cov-report=term-missing 
+             --cov-fail-under=80 
+             -v"
+    profiles:
+      - testing
+
+networks:
+  auth-dev-network:
+    driver: bridge

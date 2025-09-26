@@ -1,0 +1,13 @@
+{
+  "voices": [
+    {
+      "voice_id": "cosyvoice-v2-tv58589944-fbfb3bf951be49f79d922fa2854498db",
+      "prefix": "tv58589944",
+      "audio_url": "https://voice-to-clone.oss-cn-shenzhen.aliyuncs.com/voice-clone/to_clone_dtf1.mp3?Expires=1758590012&OSSAccessKeyId=TMP.3KoZbesQHqiwBGWH1rbPeTfXtxUKv6LzSZbbchFWWeENUkpWgFW2rSdztZWhpJNHBWLHFG5JV5ACMy1ryFi1tV3te1qvav&Signature=TTF3IwUrLOtdvji02i23gj0P4s4%3D",
+      "description": "测试声音复刻功能",
+      "request_id": "a7e438b5-adcd-4703-b1a9-66c0e9ff2648",
+      "created_at": 1758589948,
+      "status": "active"
+    }
+  ]
+}

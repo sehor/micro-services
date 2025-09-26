@@ -1,0 +1,10 @@
+项目是一个基于 FastAPI+SQLAlchemy+postgresql构建的todo应用后端。有如下功能：
+1 代办事项 的持久化
+2 待办事项 的crud
+3 为代办事项的属性单开一个表来管理:
+      id：
+      todo_id:
+      mergency:
+      corlor:
+      category:
+    

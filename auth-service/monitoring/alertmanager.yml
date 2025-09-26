@@ -1,0 +1,161 @@
+# AlertManager配置文件
+global:
+  # SMTP配置（邮件通知）
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@auth-supabase.com'
+  smtp_auth_username: 'alerts@auth-supabase.com'
+  smtp_auth_password: 'your-email-password'
+  smtp_require_tls: true
+
+  # Slack配置
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# 告警路由配置
+route:
+  group_by: ['alertname', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default-receiver'
+  routes:
+    # 关键告警立即通知
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+    
+    # 警告级别告警
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+    
+    # 认证相关告警
+    - match:
+        service: auth-supabase
+      receiver: 'auth-alerts'
+      group_wait: 15s
+
+# 接收器配置
+receivers:
+  # 默认接收器
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'admin@auth-supabase.com'
+        subject: '[Auth-Supabase] 告警通知'
+        body: |
+          告警详情:
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警级别: {{ .Labels.severity }}
+          服务名称: {{ .Labels.service }}
+          开始时间: {{ .StartsAt }}
+          {{ end }}
+
+  # 关键告警接收器
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@auth-supabase.com,ops@auth-supabase.com'
+        subject: '[CRITICAL] Auth-Supabase 关键告警'
+        body: |
+          🚨 关键告警 🚨
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          服务名称: {{ .Labels.service }}
+          开始时间: {{ .StartsAt }}
+          
+          请立即处理！
+          {{ end }}
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts-critical'
+        title: '🚨 Auth-Supabase 关键告警'
+        text: |
+          {{ range .Alerts }}
+          *告警*: {{ .Annotations.summary }}
+          *描述*: {{ .Annotations.description }}
+          *服务*: {{ .Labels.service }}
+          *时间*: {{ .StartsAt }}
+          {{ end }}
+        color: 'danger'
+
+  # 警告级别接收器
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'ops@auth-supabase.com'
+        subject: '[WARNING] Auth-Supabase 警告告警'
+        body: |
+          ⚠️ 警告告警 ⚠️
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          服务名称: {{ .Labels.service }}
+          开始时间: {{ .StartsAt }}
+          {{ end }}
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts-warning'
+        title: '⚠️ Auth-Supabase 警告告警'
+        text: |
+          {{ range .Alerts }}
+          *告警*: {{ .Annotations.summary }}
+          *描述*: {{ .Annotations.description }}
+          *服务*: {{ .Labels.service }}
+          *时间*: {{ .StartsAt }}
+          {{ end }}
+        color: 'warning'
+
+  # 认证服务专用接收器
+  - name: 'auth-alerts'
+    email_configs:
+      - to: 'auth-team@auth-supabase.com'
+        subject: '[Auth-Service] 认证服务告警'
+        body: |
+          🔐 认证服务告警 🔐
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警级别: {{ .Labels.severity }}
+          开始时间: {{ .StartsAt }}
+          {{ end }}
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#auth-service'
+        title: '🔐 认证服务告警'
+        text: |
+          {{ range .Alerts }}
+          *告警*: {{ .Annotations.summary }}
+          *描述*: {{ .Annotations.description }}
+          *级别*: {{ .Labels.severity }}
+          *时间*: {{ .StartsAt }}
+          {{ end }}
+
+# 抑制规则
+inhibit_rules:
+  # 如果服务宕机，抑制其他相关告警
+  - source_match:
+      alertname: 'AuthServiceDown'
+    target_match:
+      service: 'auth-supabase'
+    equal: ['service']
+  
+  # 如果有关键告警，抑制同类型的警告告警
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+# 模板配置
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

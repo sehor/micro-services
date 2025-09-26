@@ -1,0 +1,23 @@
+{
+  "voices": [
+    {
+      "voice_id": "cosyvoice-v2-steptest-8bc31d37f5c1434397506d553a040e76",
+      "prefix": "steptest",
+      "audio_url": "https://voice-to-clone.oss-cn-shenzhen.aliyuncs.com/voice-clone/to_clone_dtf1.mp3?Expires=1758590012&OSSAccessKeyId=TMP.3KoZbesQHqiwBGWH1rbPeTfXtxUKv6LzSZbbchFWWeENUkpWgFW2rSdztZWhpJNHBWLHFG5JV5ACMy1ryFi1tV3te1qvav&Signature=TTF3IwUrLOtdvji02i23gj0P4s4%3D",
+      "description": "分步测试克隆的声音",
+      "request_id": "ec747ef7-c33b-9c43-a195-02e17e00af47",
+      "created_at": 1756631308,
+      "status": "active"
+    }
+  ],
+  "settings": {
+    "default_timeout": 15,
+    "auto_sync": true,
+    "backup_enabled": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created_at": "2024-01-20",
+    "description": "CosyVoice声音复刻配置文件"
+  }
+}

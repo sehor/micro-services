@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>文档解析接口测试</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; margin: 24px; color: #1f2937; }
+    .card { max-width: 840px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); overflow: hidden; }
+    .card-header { padding: 16px 20px; background: linear-gradient(135deg, #eff6ff, #f5f3ff); border-bottom: 1px solid #e5e7eb; }
+    .card-header h1 { margin: 0; font-size: 18px; color: #111827; }
+    .card-body { padding: 20px; }
+    .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 240px; }
+    label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; }
+    input[type="text"], select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+    input[type="file"] { width: 100%; padding: 8px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; }
+    .actions { margin-top: 14px; display: flex; gap: 12px; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-size: 14px; }
+    button.secondary { background: #334155; }
+    pre { background: #0b1021; color: #d1e7ff; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 380px; overflow: auto; }
+    small { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h1>文档解析（alibaba · qwen-long）测试</h1>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div>
+          <label>文档文件（单个）</label>
+          <input id="file" type="file" />
+          <small>支持 PDF/DOCX/TXT/EPUB 等。图片将按 image_url 传入，其他文档将走 file_id 管道。</small>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>文档外部地址（可选，用于入库元数据）</label>
+          <input id="doc_address" type="text" placeholder="https://example.com/docs/xxx.pdf" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>自定义提示词（可选）</label>
+          <input id="user_message" type="text" placeholder="留空将使用内置 JSON 摘要模板" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>模型</label>
+          <input id="model" type="text" value="qwen-long" />
+        </div>
+        <div>
+          <label>温度</label>
+          <input id="temperature" type="text" value="0.2" />
+        </div>
+        <div>
+          <label>最大Tokens</label>
+          <input id="max_tokens" type="text" value="1536" />
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="send()">调用解析接口</button>
+        <button class="secondary" onclick="clearOut()">清空输出</button>
+      </div>
+      <div style="margin-top:16px">
+        <label>返回结果</label>
+        <pre id="out">等待调用...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  async function send() {
+    const f = document.getElementById('file').files[0];
+    const doc_address = document.getElementById('doc_address').value.trim();
+    const user_message = document.getElementById('user_message').value.trim();
+    const model = document.getElementById('model').value.trim() || 'qwen-long';
+    const temperature = document.getElementById('temperature').value.trim() || '0.2';
+    const max_tokens = document.getElementById('max_tokens').value.trim() || '1536';
+    if (!f) { alert('请选择文件'); return; }
+
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('provider', 'alibaba');
+    fd.append('model', model);
+    fd.append('temperature', temperature);
+    fd.append('max_tokens', max_tokens);
+    if (doc_address) fd.append('doc_address', doc_address);
+    if (user_message) fd.append('user_message', user_message);
+
+    setOut('调用中...');
+    try {
+      const resp = await fetch('http://localhost:8000/api/v1/chat/doc/parse', { method: 'POST', body: fd });
+      const text = await resp.text();
+      setOut(text);
+    } catch (err) {
+      setOut('调用失败: ' + (err?.message || err));
+    }
+  }
+  function setOut(t) { document.getElementById('out').textContent = t; }
+  function clearOut() { setOut(''); }
+  </script>
+</body>
+</html>
