@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   traefik:
     image: traefik:v2.11
@@ -24,39 +22,80 @@ services:
     networks:
       - traefik_public
 
+  # 新增一个 PostgreSQL 数据库服务
+  db:
+    build:
+      context: ./postgres-custom
+      # 函数级注释：将代理传递到 Dockerfile 构建阶段，确保 apt/git 走宿主机代理
+      args:
+        HTTP_PROXY: http://host.docker.internal:33210
+        HTTPS_PROXY: http://host.docker.internal:33210
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: llm_gateway
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik_public
+    # 可选: 添加健康检查，确保服务完全启动后再启动其他服务
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 新增一个 Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    networks:
+      - traefik_public
+
+
   auth-service:
     build: ./auth-service
+    env_file:
+      - ./.env
     networks:
       - traefik_public
 
   llm-service:
     build: ./llm-service
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
-      - DB_AUTO_CREATE=true
-      - DEBUG=true
+    env_file:
+      - ./.env
+    # 函数级注释：等待 db 健康再启动，避免冷启动时连接失败
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - traefik_public
 
   rag-service:
     build: ./rag-service
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
-      - DB_AUTO_CREATE=true
-      - DEBUG=true
-      - LLMS_GATEWAY_BASE=http://llm-service:8000
+    env_file:
+      - ./.env
+    # 函数级注释：等待 db 健康再启动
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - traefik_public
 
   todo-service:
     build: ./todo-service
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/llm_gateway
-      - DB_AUTO_CREATE=true
-      - DEBUG=true
+    env_file:
+      - ./.env
+    # 函数级注释：等待 db 健康再启动
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - traefik_public
 
 networks:
   traefik_public:
     name: traefik_public
+volumes:
+  postgres_data:

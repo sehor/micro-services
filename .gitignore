@@ -21,3 +21,8 @@ llm-service/test_synthesis_*.mp3
 
 # Linters/cache
 **/.ruff_cache/
+
+# evn
+.env
+.env*
+.env.**

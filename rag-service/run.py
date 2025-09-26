@@ -13,7 +13,7 @@ def main():
     """主函数：解析参数并启动 FastAPI 服务"""
     parser = argparse.ArgumentParser(description="启动 RAG 服务")
     parser.add_argument("--host", default="127.0.0.1", help="服务监听地址 (默认: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=8100, help="服务监听端口 (默认: 8100)")
+    parser.add_argument("--port", type=int, default=8004, help="服务监听端口 (默认: 8004)")
     parser.add_argument("--reload", action="store_true", default=True, help="开启热重载 (默认: True)")
     parser.add_argument("--no-reload", action="store_true", help="禁用热重载")
     parser.add_argument("--workers", type=int, default=1, help="工作进程数 (默认: 1)")

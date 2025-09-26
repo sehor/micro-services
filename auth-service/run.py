@@ -30,8 +30,8 @@ def main():
     parser.add_argument(
         "--port", 
         type=int, 
-        default=8000, 
-        help="服务器端口 (默认: 8000)"
+        default=8001, 
+        help="服务器端口 (默认: 8001)"
     )
     parser.add_argument(
         "--no-reload", 

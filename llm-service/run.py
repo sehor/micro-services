@@ -11,7 +11,7 @@ if __name__ == "__main__":
     - PORT: 监听的端口, 默认为 8000
     """
     host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8003"))
     
     uvicorn.run(
         "app.main:app", 
